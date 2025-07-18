@@ -5,19 +5,44 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
 from pathlib import Path
+import json
 
-app = FastAPI(title="Mergington High School API",
-              description="API for viewing and signing up for extracurricular activities")
+
+current_dir = Path(__file__).parent
+app = FastAPI(
+    title="Mergington High School API",
+    description="API for viewing and signing up for extracurricular activities"
+)
+
+# Load teachers from JSON file
+TEACHERS_FILE = os.path.join(current_dir, "teachers.json")
+def load_teachers():
+    try:
+        with open(TEACHERS_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+from fastapi import status
+
+@app.post("/login")
+async def login_teacher(request: Request):
+    data = await request.json()
+    username = data.get("username")
+    password = data.get("password")
+    teachers = load_teachers()
+    for teacher in teachers:
+        if teacher["username"] == username and teacher["password"] == password:
+            return {"message": "Login successful", "username": username}
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
 # Mount the static files directory
-current_dir = Path(__file__).parent
-app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
-          "static")), name="static")
+app.mount("/static", StaticFiles(directory=os.path.join(current_dir, "static")), name="static")
 
 # In-memory activity database
 activities = {
